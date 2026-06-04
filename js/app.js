@@ -1,9 +1,10 @@
 // ─────────────────────────────────────────────
 //  STATE & STORAGE
 // ─────────────────────────────────────────────
-let screen = 'home';
-let data   = loadData();
-let timerInterval = null;
+let screen          = 'home';
+let data            = loadData();
+let timerInterval   = null;
+let expandedSession = null;
 
 function loadData() {
   try { return JSON.parse(localStorage.getItem('cali_v3')) || defaultData(); }
@@ -204,6 +205,8 @@ function completeSession() {
     done, total,
     dur:    fmtTime(elapsed),
     notes:  data.inProgress.notes,
+    checks: { ...data.inProgress.checks },
+    values: { ...data.inProgress.values },
   });
   if (data.sessions.length > 60) data.sessions.length = 60;
   data.inProgress = null;
@@ -224,6 +227,76 @@ function deleteSession(index) {
   data.sessions.splice(index, 1);
   save();
   render();
+}
+
+// ─────────────────────────────────────────────
+//  SESSION DETAIL (history expand/collapse)
+// ─────────────────────────────────────────────
+function toggleSession(index) {
+  expandedSession = expandedSession === index ? null : index;
+  const detailEl  = document.getElementById('sess-detail-' + index);
+  const chevronEl = document.getElementById('sess-chevron-' + index);
+  if (!detailEl) return;
+  const isOpen = expandedSession === index;
+  detailEl.innerHTML = isOpen ? renderSessionDetail(data.sessions[index]) : '';
+  if (chevronEl) chevronEl.textContent = isOpen ? '▾' : '▸';
+}
+
+function renderSessionDetail(session) {
+  if (!session.checks) {
+    return '<p style="padding:10px 0;color:var(--text2);font-size:12px;font-style:italic">No set data — recorded before detailed tracking was added.</p>';
+  }
+  const prog      = PROGRAM[session.day];
+  const typeLabel = { warmup:'Warm-up', skill:'Skill', strength:'Strength', legs:'Legs', core:'Core', accessory:'Accessory' };
+
+  return prog.sections.map(sec => {
+    const exRows = sec.exercises.map(ex => {
+      if (ex.single) {
+        const done = session.checks[ex.id] || false;
+        return `<div class="detail-item">
+          <span class="detail-chk ${done ? 'done' : ''}">${done ? '✓' : '✗'}</span>
+          <span class="detail-ex-name">${ex.name}</span>
+        </div>`;
+      }
+      if (ex.note) {
+        const done = session.checks[ex.id] || false;
+        const val  = session.values?.[ex.id] || '';
+        return `<div class="detail-item">
+          <span class="detail-chk ${done ? 'done' : ''}">${done ? '✓' : '✗'}</span>
+          <span class="detail-ex-name">${ex.name}</span>
+          ${val ? `<span class="detail-val">${val}</span>` : ''}
+        </div>`;
+      }
+      // multi-set
+      const setRows = Array.from({ length: ex.sets }, (_, i) => {
+        const key  = ex.id + '-' + i;
+        const done = session.checks?.[key] || false;
+        const val  = session.values?.[key] || '';
+        const wgt  = session.values?.[key + '_w'] || '';
+        const display = [wgt ? wgt + 'kg' : '', val ? val + ' ' + ex.unit : ''].filter(Boolean).join(' · ');
+        return `<div class="detail-set-row">
+          <span class="detail-chk ${done ? 'done' : ''}">${done ? '✓' : '✗'}</span>
+          <span class="detail-set-lbl">Set ${i + 1}</span>
+          <span class="detail-set-val">${display || '—'}</span>
+        </div>`;
+      }).join('');
+      return `<div class="detail-ex">
+        <div class="detail-ex-header">
+          <span class="detail-ex-name">${ex.name}</span>
+          <span class="detail-ex-target">${ex.target}</span>
+        </div>
+        ${setRows}
+      </div>`;
+    }).join('');
+
+    return `<div class="detail-section">
+      <div class="detail-sec-label">
+        <span class="badge ${sec.type}">${typeLabel[sec.type] || sec.type}</span>
+        <span style="font-size:12px;font-weight:700">${sec.name}</span>
+      </div>
+      ${exRows}
+    </div>`;
+  }).join('');
 }
 
 // ─────────────────────────────────────────────
@@ -324,6 +397,14 @@ function renderHome() {
       <div class="day-focus">${PROGRAM[d].subtitle}</div>
     </button>`).join('');
 
+  const altCard = `
+    <div class="section-label" style="margin-top:16px">No rings yet? Use this instead of Day 4</div>
+    <button class="day-card" style="width:100%;border-color:rgba(14,165,233,0.35)" onclick="startDay(5)">
+      <div class="day-num" style="color:#38bdf8">5</div>
+      <div class="day-name">${PROGRAM[5].title}</div>
+      <div class="day-focus">${PROGRAM[5].subtitle}</div>
+    </button>`;
+
   return `
     <div class="home-top">
       <div class="home-date">${dateStr}</div>
@@ -334,6 +415,7 @@ function renderHome() {
       ${resumeHtml}
       <div class="section-label">${data.inProgress ? 'Start different day' : lastSes ? `Suggested: Day ${suggested}` : 'Choose your day'}</div>
       <div class="day-grid">${dayCards}</div>
+      ${altCard}
     </div>`;
 }
 
@@ -503,9 +585,10 @@ function renderHistory() {
     </div>` : '';
 
   const cards = data.sessions.map((s, i) => {
-    const pct = s.total ? Math.round(s.done / s.total * 100) : 0;
+    const pct    = s.total ? Math.round(s.done / s.total * 100) : 0;
+    const isOpen = expandedSession === i;
     return `
-      <div class="sess-card">
+      <div class="sess-card" onclick="toggleSession(${i})">
         <div class="sess-top">
           <div>
             <span class="tag ${DAY_COLORS[s.day]}">Day ${s.day}</span>
@@ -513,7 +596,8 @@ function renderHistory() {
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span class="sess-date">${s.date}</span>
-            <button class="sess-del" onclick="deleteSession(${i})" title="Remove">✕</button>
+            <button class="sess-del" onclick="deleteSession(${i});event.stopPropagation()" title="Remove">✕</button>
+            <span class="sess-chevron" id="sess-chevron-${i}">${isOpen ? '▾' : '▸'}</span>
           </div>
         </div>
         <div class="sess-metas">
@@ -523,6 +607,7 @@ function renderHistory() {
         </div>
         <div class="pct-bar"><div class="pct-fill" style="width:${pct}%;background:${DAY_ACCENTS[s.day]}"></div></div>
         ${s.notes ? `<div class="sess-notes-text">"${s.notes}"</div>` : ''}
+        <div class="sess-detail" id="sess-detail-${i}">${isOpen ? renderSessionDetail(s) : ''}</div>
       </div>`;
   }).join('');
 

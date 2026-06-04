@@ -25,8 +25,8 @@ const PROGRAM = {
       { id: 's1st', name: 'Strength', type: 'strength', exercises: [
         { id: 'd1-rp', name: 'Ring / archer push-ups',   target: '4 × 8-10',   sets: 4, unit: 'reps' },
         { id: 'd1-pp', name: 'Pike / wall HS push-ups',  target: '3 × 5-8',    sets: 3, unit: 'reps' },
-        { id: 'd1-rd', name: 'Ring dips',                target: '3 × 8-10',   sets: 3, unit: 'reps' },
-        { id: 'd1-te', name: 'Tricep ring extensions',   target: '3 × 10-12',  sets: 3, unit: 'reps' },
+        { id: 'd1-rd', name: 'Ring dips / parallel bar dips',           target: '3 × 8-10',  sets: 3, unit: 'reps' },
+        { id: 'd1-te', name: 'Tricep ring ext / close-grip push-ups', target: '3 × 10-12', sets: 3, unit: 'reps' },
         { id: 'd1-ls', name: 'L-sit hold',               target: '3 × 15-20s', sets: 3, unit: 's' },
       ]},
     ]
@@ -53,7 +53,7 @@ const PROGRAM = {
       { id: 's2st', name: 'Strength', type: 'strength', exercises: [
         { id: 'd2-wpu',  name: 'Weighted / L-sit pull-ups', target: '4 × 5-6',      sets: 4, unit: 'reps', weight: true },
         { id: 'd2-arch', name: 'Archer pull-ups',           target: '3 × 5 each',   sets: 3, unit: 'each' },
-        { id: 'd2-rrow', name: 'Ring rows (feet elevated)', target: '3 × 10',        sets: 3, unit: 'reps' },
+        { id: 'd2-rrow', name: 'Ring rows / inverted rows (bar)', target: '3 × 10', sets: 3, unit: 'reps' },
         { id: 'd2-fp',   name: 'Face pulls',                target: '3 × 15',        sets: 3, unit: 'reps' },
         { id: 'd2-sd',   name: 'Scapular depression holds', target: '3 × 20s',       sets: 3, unit: 's' },
         { id: 'd2-dh',   name: 'Dead hang',                 target: '3 × 30s',       sets: 3, unit: 's' },
@@ -118,6 +118,36 @@ const PROGRAM = {
         { id: 'd4ac3', name: 'Y/T/W on bench',           target: '3 × 12',                 single: true },
       ]},
     ]
+  },
+
+  // ── Day 5 — replaces Day 4 until you have rings ──
+  5: {
+    title: 'Bar & Bodyweight', subtitle: 'No rings needed',
+    sections: [
+      { id: 's5wu', name: 'Warm-up', type: 'warmup', exercises: [
+        { id: 'd5wu1', name: 'Dead hang',              target: '30s',  single: true },
+        { id: 'd5wu2', name: 'Scapular pull-ups',      target: '× 10', single: true },
+        { id: 'd5wu3', name: 'Chest-to-bar attempts',  target: '× 5',  single: true },
+      ]},
+      { id: 's5mu', name: 'Muscle-up', type: 'skill', exercises: [
+        { id: 'd5-ctb',  name: 'Chest-to-bar pull-ups',         target: '5 × 3-5 strict', sets: 5, unit: 'reps' },
+        { id: 'd5-neg',  name: 'Bar MU negative',               target: '4 × 3',          sets: 4, unit: 'reps' },
+        { id: 'd5-exp',  name: 'Explosive pull-ups (supinated)', target: '3 × 5',          sets: 3, unit: 'reps' },
+        { id: 'd5-high', name: 'Max height pull-up',            target: '3 × 3-5',        sets: 3, unit: 'reps' },
+      ]},
+      { id: 's5st', name: 'Strength', type: 'strength', exercises: [
+        { id: 'd5-wpu', name: 'Weighted pull-ups',              target: '4 × 5-6',    sets: 4, unit: 'reps', weight: true },
+        { id: 'd5-dip', name: 'Parallel bar dips',              target: '3 × 10-12',  sets: 3, unit: 'reps' },
+        { id: 'd5-sph', name: 'Dip bar support hold',           target: '3 × 20-30s', sets: 3, unit: 's' },
+        { id: 'd5-inv', name: 'Inverted rows (bar, horizontal)', target: '3 × 10',    sets: 3, unit: 'reps' },
+        { id: 'd5-arc', name: 'Archer push-ups',                target: '3 × 8 each', sets: 3, unit: 'each' },
+      ]},
+      { id: 's5ac', name: 'Accessory', type: 'accessory', exercises: [
+        { id: 'd5ac1', name: 'Wrist conditioning',     target: 'rocks + circles, 1 min', single: true },
+        { id: 'd5ac2', name: 'Band external rotation', target: '× 20 each side',         single: true },
+        { id: 'd5ac3', name: 'Y/T/W on bench',         target: '3 × 12',                 single: true },
+      ]},
+    ]
   }
 };
 
@@ -140,11 +170,12 @@ const SKILL_DEFS = [
 // ─────────────────────────────────────────────
 //  CONSTANTS
 // ─────────────────────────────────────────────
-const DAY_COLORS  = { 1:'d1', 2:'d2', 3:'d3', 4:'d4' };
+const DAY_COLORS  = { 1:'d1', 2:'d2', 3:'d3', 4:'d4', 5:'d5' };
 const DAY_TITLES  = {
   1: 'Push · Planche · Handstand',
   2: 'Pull · Front Lever · Handstand',
   3: 'Handstand · Legs · Core',
   4: 'Rings · Muscle-up',
+  5: 'Bar & Bodyweight · No rings needed',
 };
-const DAY_ACCENTS = { 1:'#f97316', 2:'#3b82f6', 3:'#a855f7', 4:'#22c55e' };
+const DAY_ACCENTS = { 1:'#f97316', 2:'#3b82f6', 3:'#a855f7', 4:'#22c55e', 5:'#0ea5e9' };
