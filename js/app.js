@@ -219,6 +219,13 @@ function discardSession() {
   go('home');
 }
 
+function deleteSession(index) {
+  if (!confirm('Remove this session from history?')) return;
+  data.sessions.splice(index, 1);
+  save();
+  render();
+}
+
 // ─────────────────────────────────────────────
 //  SKILLS
 // ─────────────────────────────────────────────
@@ -356,6 +363,7 @@ function renderWorkout() {
         <button class="timer-btn ${isRunning ? 'running' : 'paused'}" id="timer-btn" onclick="toggleTimer()">
           ${isRunning ? '⏸' : '▶'}
         </button>
+        <button class="cancel-btn" onclick="discardSession()" title="Cancel session">✕</button>
       </div>
     </div>
     <div class="progress-row">
@@ -494,7 +502,7 @@ function renderHistory() {
       </div>
     </div>` : '';
 
-  const cards = data.sessions.map(s => {
+  const cards = data.sessions.map((s, i) => {
     const pct = s.total ? Math.round(s.done / s.total * 100) : 0;
     return `
       <div class="sess-card">
@@ -503,7 +511,10 @@ function renderHistory() {
             <span class="tag ${DAY_COLORS[s.day]}">Day ${s.day}</span>
             <span style="font-size:12px;color:var(--text2);margin-left:7px">${DAY_TITLES[s.day]}</span>
           </div>
-          <span class="sess-date">${s.date}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="sess-date">${s.date}</span>
+            <button class="sess-del" onclick="deleteSession(${i})" title="Remove">✕</button>
+          </div>
         </div>
         <div class="sess-metas">
           <span class="sess-meta">Sets <b>${s.done}/${s.total}</b></span>
