@@ -308,6 +308,76 @@ nav {
 .tag.d4 { background: rgba(34,197,94,0.2);   color: #4ade80; }
 .tag.d5 { background: rgba(14,165,233,0.2);  color: #38bdf8; }
 
+/* ── REST PRESET ROW ── */
+.rest-preset-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 0 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+.rest-preset-icon { font-size: 15px; line-height: 1; }
+.rest-preset-label { font-size: 12px; color: var(--text2); font-weight: 600; flex: 1; }
+.rest-preset-val {
+  font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--blue); min-width: 44px; text-align: center; letter-spacing: 0.3px;
+}
+.rest-preset-btn {
+  padding: 6px 11px; border-radius: 8px;
+  border: 1px solid rgba(59,130,246,0.3);
+  background: rgba(59,130,246,0.1); color: #60a5fa; font-size: 12px;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.rest-preset-btn:active { background: rgba(59,130,246,0.28); }
+
+/* ── REST FIXED BAR (sticky, above nav) ── */
+.rest-fixed {
+  position: fixed;
+  bottom: var(--nav-h);
+  left: 0; right: 0;
+  background: #111c2d;
+  border-top: 2px solid rgba(59,130,246,0.55);
+  padding: 11px 14px;
+  z-index: 15;
+  display: flex; align-items: center; gap: 10px;
+  transform: translateY(calc(100% + 2px));
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rest-fixed.active { transform: translateY(0); }
+.rest-ex-label {
+  flex: 1; font-size: 12px; color: #60a5fa; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rest-fixed-count {
+  font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--text); min-width: 72px; text-align: right; letter-spacing: 0.5px;
+}
+.rest-fixed-count.urgent { color: var(--red); }
+.rest-adj {
+  padding: 6px 10px; border-radius: 8px;
+  border: 1px solid rgba(59,130,246,0.3);
+  background: rgba(59,130,246,0.1); color: #60a5fa; font-size: 11px;
+  cursor: pointer; font-family: inherit; transition: background 0.12s;
+}
+.rest-adj:active { background: rgba(59,130,246,0.28); }
+.rest-skip {
+  padding: 6px 12px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: none; color: var(--text2); font-size: 11px;
+  cursor: pointer; font-family: inherit; transition: all 0.12s;
+}
+.rest-skip:active { color: var(--text); background: var(--surface2); }
+.rest-done-fixed {
+  width: 100%; text-align: center;
+  font-size: 14px; font-weight: 700; color: var(--green);
+  cursor: pointer; padding: 2px 0;
+}
+
+/* ── PREV SESSION HINT ── */
+.prev-session-hint {
+  font-size: 11px; color: var(--text2);
+  margin: 0 0 10px; letter-spacing: 0.2px;
+}
+
 /* ── EMPTY STATE ── */
 .empty { text-align: center; padding: 56px 20px; color: var(--text2); }
 .empty-icon { font-size: 44px; margin-bottom: 12px; }

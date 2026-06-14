@@ -5,6 +5,8 @@ let screen          = 'home';
 let data            = loadData();
 let timerInterval   = null;
 let expandedSession = null;
+let prevSession     = null;   // last completed session for the day being worked out
+let restState       = { exId: null, endsAt: null, iv: null };
 
 function loadData() {
   try { return JSON.parse(localStorage.getItem('cali_v3')) || defaultData(); }
@@ -15,6 +17,7 @@ function defaultData() {
   return {
     inProgress: null,
     sessions: [],
+    restSeconds: 90,
     skills: {
       handstand:    'Freestanding ~3s',
       'hs-wall':    'Solid 20-30s',
@@ -34,7 +37,7 @@ function save() { localStorage.setItem('cali_v3', JSON.stringify(data)); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 // ─────────────────────────────────────────────
-//  TIMER
+//  SESSION TIMER (workout duration)
 // ─────────────────────────────────────────────
 function getElapsedMs() {
   if (!data.inProgress) return 0;
@@ -51,6 +54,12 @@ function fmtTime(ms) {
   const h = Math.floor(m / 60);
   if (h > 0) return h + ':' + pad(m % 60) + ':' + pad(s % 60);
   return pad(m) + ':' + pad(s % 60);
+}
+
+function fmtRestSecs(s) {
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return m + ':' + pad(r);
 }
 
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -94,10 +103,97 @@ function toggleTimer() {
 }
 
 // ─────────────────────────────────────────────
+//  REST TIMER (between sets)
+// ─────────────────────────────────────────────
+function getPrevSession(day) {
+  return data.sessions.find(s => s.day === day && s.checks) || null;
+}
+
+function getExerciseName(day, exId) {
+  if (!day || !PROGRAM[day]) return '';
+  for (const sec of PROGRAM[day].sections) {
+    for (const ex of sec.exercises) {
+      if (ex.id === exId) return ex.name;
+    }
+  }
+  return '';
+}
+
+function showRestBar(exId, remMs) {
+  const bar = document.getElementById('rest-fixed');
+  if (!bar) return;
+  const exName = getExerciseName(data.inProgress?.day, exId);
+  bar.innerHTML = `
+    <span class="rest-ex-label">${exName}</span>
+    <span class="rest-fixed-count" id="rest-time-fixed">${fmtTime(remMs)}</span>
+    <button class="rest-adj" onclick="addRestTime(-15);event.stopPropagation()">−15s</button>
+    <button class="rest-adj" onclick="addRestTime(15);event.stopPropagation()">+15s</button>
+    <button class="rest-skip" onclick="clearRestTimer();event.stopPropagation()">Skip</button>`;
+  bar.classList.add('active');
+}
+
+function startRestTimer(exId) {
+  if (restState.iv) clearInterval(restState.iv);
+
+  const secs       = data.restSeconds || 90;
+  restState.exId   = exId;
+  restState.endsAt = Date.now() + secs * 1000;
+
+  showRestBar(exId, secs * 1000);
+
+  restState.iv = setInterval(() => {
+    const rem    = restState.endsAt - Date.now();
+    const timeEl = document.getElementById('rest-time-fixed');
+    if (!timeEl) { clearInterval(restState.iv); restState.iv = null; return; }
+    if (rem <= 0) {
+      clearInterval(restState.iv);
+      restState.iv = null;
+      const bar = document.getElementById('rest-fixed');
+      if (bar) bar.innerHTML = '<div class="rest-done-fixed" onclick="clearRestTimer()">✓ Rest done — tap to dismiss</div>';
+      setTimeout(() => { if (restState.exId === exId) clearRestTimer(); }, 3000);
+    } else {
+      timeEl.textContent = fmtTime(rem);
+      if (rem < 10000) timeEl.classList.add('urgent');
+    }
+  }, 200);
+}
+
+function clearRestTimer() {
+  if (restState.iv) { clearInterval(restState.iv); restState.iv = null; }
+  if (restState.exId) {
+    const bar = document.getElementById('rest-fixed');
+    if (bar) { bar.innerHTML = ''; bar.classList.remove('active'); }
+    restState.exId   = null;
+    restState.endsAt = null;
+  }
+}
+
+function addRestTime(delta) {
+  if (!restState.exId || !restState.endsAt) return;
+  data.restSeconds = Math.max(30, Math.min(300, (data.restSeconds || 90) + delta));
+  save();
+  restState.endsAt = Math.max(Date.now() + 1000, restState.endsAt + delta * 1000);
+  const timeEl = document.getElementById('rest-time-fixed');
+  if (timeEl) timeEl.textContent = fmtTime(restState.endsAt - Date.now());
+  const presetEl = document.getElementById('rest-preset-val');
+  if (presetEl) presetEl.textContent = fmtRestSecs(data.restSeconds);
+}
+
+function adjustDefaultRest(delta) {
+  data.restSeconds = Math.max(30, Math.min(300, (data.restSeconds || 90) + delta));
+  save();
+  const el = document.getElementById('rest-preset-val');
+  if (el) el.textContent = fmtRestSecs(data.restSeconds);
+}
+
+// ─────────────────────────────────────────────
 //  NAVIGATION
 // ─────────────────────────────────────────────
 function go(s) {
-  if (screen === 'workout' && s !== 'workout') stopTimerInterval();
+  if (screen === 'workout' && s !== 'workout') {
+    stopTimerInterval();
+    clearRestTimer();
+  }
   screen = s;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   const el = document.getElementById('nav-' + s);
@@ -110,6 +206,7 @@ function startDay(day) {
   if (data.inProgress && data.inProgress.day !== day) {
     if (!confirm(`You have an unfinished Day ${data.inProgress.day}. Start Day ${day} instead?`)) return;
     stopTimerInterval();
+    clearRestTimer();
     data.inProgress = null;
   }
   if (!data.inProgress) {
@@ -130,7 +227,7 @@ function startDay(day) {
 // ─────────────────────────────────────────────
 //  WORKOUT ACTIONS
 // ─────────────────────────────────────────────
-function toggleCheck(key) {
+function toggleCheck(key, exId) {
   if (!data.inProgress) return;
   data.inProgress.checks[key] = !data.inProgress.checks[key];
   save();
@@ -141,6 +238,10 @@ function toggleCheck(key) {
     btn.textContent = on ? '✓' : '';
     const lbl = btn.closest('.check-item')?.querySelector('.check-item-label');
     if (lbl) lbl.classList.toggle('struck', on);
+  }
+  // Start rest timer for multi-set exercises only (key !== exId means it's a set, not note/single)
+  if (data.inProgress.checks[key] && exId && key !== exId) {
+    startRestTimer(exId);
   }
   refreshProgress();
 }
@@ -197,6 +298,7 @@ function completeSession() {
   if (data.inProgress.timerRunning && data.inProgress.timerStart) {
     elapsed += Date.now() - data.inProgress.timerStart;
   }
+  clearRestTimer();
   stopTimerInterval();
   data.sessions.unshift({
     day:    data.inProgress.day,
@@ -216,6 +318,7 @@ function completeSession() {
 
 function discardSession() {
   if (!confirm('Discard this session? All progress will be lost.')) return;
+  clearRestTimer();
   stopTimerInterval();
   data.inProgress = null;
   save();
@@ -336,6 +439,7 @@ function importData() {
           return;
         }
         if (confirm(`Import ${imported.sessions.length} sessions? Your current data will be replaced.`)) {
+          clearRestTimer();
           stopTimerInterval();
           data = imported;
           save();
@@ -422,6 +526,10 @@ function renderHome() {
 // ── WORKOUT ───────────────────────────────────
 function renderWorkout() {
   if (!data.inProgress) return renderHome();
+
+  // Set prev session before any exercise rendering
+  prevSession = getPrevSession(data.inProgress.day);
+
   const day  = data.inProgress.day;
   const prog = PROGRAM[day];
   const { done, total } = getProgress();
@@ -432,6 +540,10 @@ function renderWorkout() {
   const energyBtns = [1,2,3,4,5].map(e =>
     `<button class="energy-btn ${data.inProgress.energy === e ? 'sel' : ''}" onclick="setEnergy(${e})">${e}</button>`
   ).join('');
+
+  const prevLabel = prevSession
+    ? `<p class="prev-session-hint">↑ placeholders show values from your last ${DAY_TITLES[day].split('·')[0].trim()} session</p>`
+    : '';
 
   return `
     <div class="header">
@@ -453,7 +565,15 @@ function renderWorkout() {
       <span class="progress-pct"   id="pp">${pct}%</span>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="pf" style="width:${pct}%"></div></div>
-    <div class="padded">
+    <div class="padded" style="padding-bottom:100px">
+      <div class="rest-preset-row">
+        <span class="rest-preset-icon">⏱</span>
+        <span class="rest-preset-label">Rest time</span>
+        <button class="rest-preset-btn" onclick="adjustDefaultRest(-15)">−15s</button>
+        <span class="rest-preset-val" id="rest-preset-val">${fmtRestSecs(data.restSeconds || 90)}</span>
+        <button class="rest-preset-btn" onclick="adjustDefaultRest(15)">+15s</button>
+      </div>
+      ${prevLabel}
       ${sections}
       <div class="card" style="margin-top:18px">
         <div class="card-title">Energy level</div>
@@ -467,7 +587,8 @@ function renderWorkout() {
       <button class="btn-primary" onclick="completeSession()">Complete Session ✓</button>
       <button class="btn-ghost"   onclick="go('home')">Save &amp; continue later</button>
       <button class="discard-link" onclick="discardSession()">Discard session</button>
-    </div>`;
+    </div>
+    <div id="rest-fixed" class="rest-fixed"></div>`;
 }
 
 function renderSection(sec) {
@@ -484,7 +605,7 @@ function renderExercise(ex) {
   if (ex.single) {
     const on = data.inProgress?.checks[ex.id] || false;
     return `
-      <div class="exercise" onclick="toggleCheck('${ex.id}')">
+      <div class="exercise" id="ex-${ex.id}" onclick="toggleCheck('${ex.id}')">
         <div class="check-item" style="padding:0;border:none">
           <div class="set-check ${on ? 'done' : ''}" data-key="${ex.id}">${on ? '✓' : ''}</div>
           <span class="check-item-label ${on ? 'struck' : ''}">${ex.name}</span>
@@ -494,10 +615,12 @@ function renderExercise(ex) {
   }
 
   if (ex.note) {
-    const on  = data.inProgress?.checks[ex.id] || false;
-    const val = data.inProgress?.values[ex.id] || '';
+    const on      = data.inProgress?.checks[ex.id] || false;
+    const val     = data.inProgress?.values[ex.id] || '';
+    const prevVal = prevSession?.values?.[ex.id] || '';
+    const ph      = prevVal ? 'prev: ' + prevVal : (ex.notePh || '—');
     return `
-      <div class="exercise">
+      <div class="exercise" id="ex-${ex.id}">
         <div class="ex-header">
           <span class="ex-name">${ex.name}</span>
           <span class="ex-target">${ex.target}</span>
@@ -505,35 +628,41 @@ function renderExercise(ex) {
         <div class="note-row">
           <button class="set-check ${on ? 'done' : ''}" data-key="${ex.id}" onclick="toggleCheck('${ex.id}')">${on ? '✓' : ''}</button>
           <span class="note-label">Done</span>
-          <input class="set-input" type="text" inputmode="decimal" placeholder="${ex.notePh || '—'}" value="${val}"
+          <input class="set-input" type="text" inputmode="decimal" placeholder="${ph}" value="${val}"
             onchange="setVal('${ex.id}', this.value)" onclick="event.stopPropagation()">
         </div>
       </div>`;
   }
 
+  // multi-set — prev values shown as input placeholders
   const setRows = Array.from({ length: ex.sets }, (_, i) => {
-    const key  = ex.id + '-' + i;
-    const on   = data.inProgress?.checks[key] || false;
-    const val  = data.inProgress?.values[key] || '';
-    const wKey = key + '_w';
-    const wgt  = ex.weight
+    const key     = ex.id + '-' + i;
+    const on      = data.inProgress?.checks[key] || false;
+    const val     = data.inProgress?.values[key] || '';
+    const wKey    = key + '_w';
+    const prevVal = prevSession?.values?.[key] || '';
+    const prevWgt = ex.weight ? (prevSession?.values?.[wKey] || '') : '';
+    const repsPh  = prevVal ? 'prev: ' + prevVal : '—';
+    const wgtPh   = prevWgt ? prevWgt : 'kg';
+
+    const wgt = ex.weight
       ? `<input class="set-input" style="max-width:52px" type="text" inputmode="decimal"
-           placeholder="kg" value="${data.inProgress?.values[wKey] || ''}"
+           placeholder="${wgtPh}" value="${data.inProgress?.values[wKey] || ''}"
            onchange="setVal('${wKey}', this.value)" onclick="event.stopPropagation()">`
       : '';
     return `
       <div class="set-row">
-        <button class="set-check ${on ? 'done' : ''}" data-key="${key}" onclick="toggleCheck('${key}')">${on ? '✓' : ''}</button>
+        <button class="set-check ${on ? 'done' : ''}" data-key="${key}" onclick="toggleCheck('${key}', '${ex.id}')">${on ? '✓' : ''}</button>
         <span class="set-label">Set ${i + 1}</span>
         ${wgt}
-        <input class="set-input" type="text" inputmode="decimal" placeholder="—" value="${val}"
+        <input class="set-input" type="text" inputmode="decimal" placeholder="${repsPh}" value="${val}"
           onchange="setVal('${key}', this.value)" onclick="event.stopPropagation()">
         <span class="set-unit">${ex.unit}</span>
       </div>`;
   }).join('');
 
   return `
-    <div class="exercise">
+    <div class="exercise" id="ex-${ex.id}">
       <div class="ex-header">
         <span class="ex-name">${ex.name}</span>
         <span class="ex-target">${ex.target}</span>
