@@ -483,7 +483,14 @@ function renderHome() {
   }).join('');
 
   const lastSes   = data.sessions[0];
-  const suggested = lastSes ? (lastSes.day % 4) + 1 : 1;
+  const splitDays = [6, 7, 8, 9, 10, 11];
+  let suggested;
+  if (lastSes && lastSes.day >= 6) {
+    const idx = splitDays.indexOf(lastSes.day);
+    suggested = splitDays[(idx + 1) % splitDays.length];
+  } else {
+    suggested = lastSes ? (lastSes.day % 4) + 1 : 6;
+  }
 
   const resumeHtml = data.inProgress ? `
     <div class="resume-card">
@@ -509,6 +516,14 @@ function renderHome() {
       <div class="day-focus">${PROGRAM[5].subtitle}</div>
     </button>`;
 
+  const splitLabels = { 6: 'Mon', 7: 'Tue', 8: 'Wed', 9: 'Thu', 10: 'Fri', 11: 'Sat' };
+  const splitCards  = splitDays.map(d => `
+    <button class="day-card ${d === suggested && !data.inProgress ? 'suggested' : ''}" onclick="startDay(${d})">
+      <div class="day-num" style="font-size:15px;letter-spacing:0.5px">${splitLabels[d]}</div>
+      <div class="day-name">${PROGRAM[d].title}</div>
+      <div class="day-focus">${PROGRAM[d].subtitle}</div>
+    </button>`).join('');
+
   return `
     <div class="home-top">
       <div class="home-date">${dateStr}</div>
@@ -517,7 +532,9 @@ function renderHome() {
     <div class="padded">
       <div class="week-bar">${weekHtml}</div>
       ${resumeHtml}
-      <div class="section-label">${data.inProgress ? 'Start different day' : lastSes ? `Suggested: Day ${suggested}` : 'Choose your day'}</div>
+      <div class="section-label">Split program · skills first</div>
+      <div class="day-grid">${splitCards}</div>
+      <div class="section-label" style="margin-top:20px;opacity:0.75">Original program</div>
       <div class="day-grid">${dayCards}</div>
       ${altCard}
     </div>`;
